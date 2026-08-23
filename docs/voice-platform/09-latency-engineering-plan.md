@@ -82,6 +82,27 @@ sufficient reason to act on its own.
 
 ---
 
+## 1.5 Is ≤800 ms feasible? Yes — with one condition
+
+| Evidence | Reading |
+|---|---|
+| Budget in §3 closes 1,290 ms and lands at **660 ms**, 140 ms under target | Arithmetically sound |
+| **OpenAI's flagship speech-to-speech model measures 820 ms** end-to-end | 800 ms is at the frontier, not beyond it |
+| A well-engineered cascaded pipeline beats some end-to-end models | The architecture is not the limitation |
+| Phases A–C reach ~1,200 ms with **no model training at all** | Most of the win is ordinary engineering |
+| Every lever in §3 and §5 is independently measurable | No single point of failure |
+
+**The condition: Telugu turn detection (§4).** Endpointing is 550 ms of the 1,290 ms, and
+LiveKit's detector has no Telugu. Without that model the programme lands at ~1,200 ms —
+still ahead of four of the five benchmarked platforms, but not at target.
+
+| Outcome | Server-side | Caller hears | vs benchmark field |
+|---|---|---|---|
+| Phases A–C only | ~1,200 ms | ~1,690 ms | Beats 4 of 5 |
+| **Phases A–D (target)** | **≤800 ms** | **~1,290 ms** | **Beats all 5** |
+
+---
+
 ## 2. The Target
 
 | ID | Metric | Target | Rationale |
@@ -201,6 +222,90 @@ Until TD-6 passes, Telugu runs a **hybrid endpointer**: the semantic model propo
 a reduced silence threshold confirms. Expected interim endpointing ~450–550 ms, giving
 server-side ~900–1,000 ms — already better than Vapi's implied server-side figure, while
 the detector matures.
+
+---
+
+## 4A. Alternative Considered: Speech-to-Speech
+
+**Question raised by the sponsor:** could a single realtime speech-to-speech (S2S) model —
+audio in, audio out, no STT→LLM→TTS chain — reach the target more easily?
+
+**Answer: no. It would make the target harder to hit and would cost two of the
+programme's three justifications.**
+
+### 4A.1 S2S is not automatically faster
+
+| Model | Measured end-to-end TTFT |
+|---|---|
+| OpenAI `gpt-realtime-1.5` | **0.82 s** |
+| OpenAI GPT-4o Realtime | 80–120 ms *processing only* — not voice-to-voice |
+| Gemini 3.1 Flash Live | **2.98 s** |
+
+> A well-engineered cascaded pipeline, with TTS streaming first audio in ~100–250 ms,
+> **beats some end-to-end models on voice-to-voice latency.**
+
+OpenAI's own flagship S2S model sits at **820 ms** — essentially identical to the 800 ms
+cascaded target in §3. So S2S offers no latency advantage here, while removing every
+component-level lever that makes the target reachable.
+
+Note also the 80–120 ms figure: that is *processing* latency, the same category of
+component number as Cartesia's 40 ms TTS. It is not voice-to-voice, and it is the likely
+origin of the "100 ms" claims in circulation.
+
+### 4A.2 S2S has essentially no Telugu
+
+| Model | Indian language support |
+|---|---|
+| OpenAI Realtime | Not published for Telugu; quality unverified |
+| Gemini Live | Not published for Telugu |
+| Qwen3-TTS | 10 languages — **Telugu not included** |
+| Moshi (open source, 7B, sub-200 ms, full-duplex) | English/French |
+
+The one encouraging data point: **Hindi-Moshi** exists — the Moshi architecture adapted
+into the first full-duplex spoken dialogue model for Hindi. That proves the adaptation
+path is real for Indian languages, but it is a research programme, not a v1 decision.
+
+### 4A.3 S2S destroys two of the three justifications
+
+| Justification | Under cascaded | Under S2S |
+|---|---|---|
+| Architectural control (tool calling) | Full | Reduced — shallow tool surface |
+| **Speech-recognition ownership** | **Full — the entire STT-001 ladder** | **GONE.** No STT to swap, boost, correct, race or fine-tune. There is no transcript stage to own |
+| Latency leadership | Component-level control | Vendor's number, take it or leave it |
+| Cost | $0.0095–$0.17/min, predictable | $0.00165–$0.30/min — OpenAI Realtime at **$0.30/min** |
+| Vendor choice | 5+ STT, 7+ TTS, dozens of LLMs | **Two vendors: OpenAI and Google** |
+
+> **This is the decisive point.** FS-001 §10 identifies Telugu ASR ownership as the
+> primary justification for building this platform at all. S2S has no ASR stage to own.
+> Adopting it would mean rebuilding the platform in order to surrender the capability the
+> platform exists to provide — and returning to per-minute pricing set by one of two
+> vendors, which is the position the project is escaping.
+
+### 4A.4 What the market does
+
+Cascaded dominates enterprise deployment for debuggability, compliance and provider
+flexibility. S2S is growing for short conversational use cases where latency dominates
+and the tool surface is shallow. Outbound sales qualification with tool calls, transfer,
+extraction and compliance obligations is not that use case.
+
+### 4A.5 Decision
+
+**Remain cascaded.** Reasons, in order:
+
+1. No latency advantage — OpenAI's best S2S is 820 ms against our 800 ms target
+2. No usable Telugu
+3. Eliminates the STT ownership that justifies the project
+4. Restores per-minute vendor lock-in at up to $0.30/min
+5. Weaker tool calling, which is justification #1
+
+**Revisit when** a Telugu-capable full-duplex model exists that can be self-hosted. The
+Hindi-Moshi precedent, plus AI4Bharat's open-source **Indic-TTS covering 13 Indian
+languages including Telugu**, suggests that becomes plausible within a few years. Tracked
+as a v3 research item, not a v1 option.
+
+> **Adjacent finding worth acting on later:** AI4Bharat Indic-TTS is open source and
+> covers Telugu. That is a route to owning the **TTS** layer as well as STT, driving
+> another per-minute cost toward zero. Recorded in STT-001's successor scope, not v1.
 
 ---
 

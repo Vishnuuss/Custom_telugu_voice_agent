@@ -98,6 +98,27 @@ safely go below ~0.6 s (your callers already protested at 0.35 s), and 0.6 s alo
 75% of an 800 ms budget. **So a Telugu turn-detector model has to be trained.** 19 of the
 42 latency days are exactly that. Precedent exists — the same was done for Thai.
 
+### Is 800ms actually feasible? Yes.
+
+**OpenAI's own flagship speech-to-speech model measures 820 ms end-to-end.** So 800 ms
+cascaded is at the frontier, not beyond it. Gemini 3.1 Flash Live measures 2.98 s.
+
+We also checked whether a **speech-to-speech model** (one model, audio in → audio out, no
+TTS stage) would be easier. It would not:
+
+| | Cascaded (chosen) | Speech-to-speech |
+|---|---|---|
+| Latency | ~800 ms target | 820 ms (OpenAI) / 2.98 s (Gemini) |
+| Telugu | Yours to train | **Essentially none** |
+| STT ownership | **Full — the whole ladder above** | **Gone — there is no transcript stage** |
+| Cost | $0.0095–$0.17/min | up to **$0.30/min** |
+| Vendors | 5+ STT, 7+ TTS, dozens of LLMs | **Two: OpenAI, Google** |
+
+Adopting S2S would mean rebuilding the platform in order to give up the exact capability
+it exists to provide — and going back to per-minute pricing from one of two vendors.
+Revisit if a self-hostable Telugu full-duplex model appears; **Hindi-Moshi** shows the
+path is real.
+
 **Sequencing:** the cheap wins (co-location, non-reasoning model, streaming TTS) reach
 ~1,200 ms with *no model training at all* — already better than 4 of the 5 platforms
 above. The turn detector buys the last 400 ms.

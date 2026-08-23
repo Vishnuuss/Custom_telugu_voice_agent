@@ -507,6 +507,39 @@ what would reverse the decision.
 - **Decision:** Supabase Postgres for structured data, MinIO for audio.
 - **Why:** Already operated; no new operational surface (C-01, C-06, NFR-PORT-02).
 
+### ADR-09 — Cascaded pipeline, not speech-to-speech
+
+- **Decision:** Keep the cascaded STT → Brain → TTS pipeline. Do not adopt a realtime
+  speech-to-speech (S2S) model.
+- **Rejected:** OpenAI Realtime, Gemini Live, Moshi.
+- **Why:**
+  1. **No latency advantage.** OpenAI `gpt-realtime-1.5` measures **820 ms** end-to-end
+     against this programme's 800 ms cascaded target. Gemini 3.1 Flash Live measures
+     2.98 s. A well-engineered cascaded pipeline beats some end-to-end models outright.
+  2. **No usable Telugu.** Qwen3-TTS covers 10 languages, excluding Telugu; Moshi is
+     English/French; the hosted S2S vendors do not publish Telugu support.
+  3. **It eliminates the STT stage** — and with it the entire STT-001 ladder, which
+     FS-001 §10 identifies as the primary justification for the platform. There is no
+     transcript stage to boost, correct, race or fine-tune.
+  4. **Vendor lock-in returns.** Two vendors exist (OpenAI, Google), at up to $0.30/min,
+     versus $0.0095–$0.17/min cascaded across 5+ STT, 7+ TTS and dozens of LLMs.
+  5. Shallower tool surface, weakening ADR-03.
+- **Reversal trigger:** a Telugu-capable, self-hostable full-duplex model. **Hindi-Moshi**
+  (Moshi adapted to Hindi) shows the path is real for Indian languages; AI4Bharat's
+  open-source **Indic-TTS** already covers Telugu. Tracked as v3 research.
+
+### ADR-10 — Endpointing is a trainable model, not a timer
+
+- **Decision:** Treat end-of-turn detection as a first-class model to be fine-tuned for
+  Telugu, on the same corpus as the STT workstream.
+- **Rejected:** Silence-threshold endpointing as the permanent strategy.
+- **Why:** Endpointing is the largest single latency component (800 ms measured). LiveKit's
+  turn detector covers 14 languages including Hindi but **not Telugu**, and silence
+  thresholds cannot safely go below ~0.6 s for Telugu — 75% of an 800 ms budget. Precedent
+  exists (Thai, arXiv 2510.04016); the base is Qwen2.5-0.5B, CPU-inferable.
+- **Reversal trigger:** LiveKit adds Telugu to the supported set, making the fine-tune
+  unnecessary. Worth checking before committing the 19 days.
+
 ### ADR-08 — Two-plane separation
 
 - **Decision:** Control plane and media plane share only the database and a queue.
