@@ -1,0 +1,74 @@
+# ---------------------------------------------------------------------------
+# DEFAULT DENY.
+#
+# This working directory holds the whole BS Wealth Finance project: live .env
+# files, customer phone numbers, tuned production prompts and ~4.6 GB of
+# node_modules. The published repository is PUBLIC and must contain only the
+# SDLC documentation and the deterministic tooling.
+#
+# Everything is ignored, then specific paths are re-included below.
+# Do NOT switch this to an allow-by-default list.
+# ---------------------------------------------------------------------------
+*
+
+# --- re-include: repository metadata ---------------------------------------
+!/.gitignore
+!/README.md
+
+# --- re-include: SDLC documentation ----------------------------------------
+!/docs/
+!/docs/voice-platform/
+!/docs/voice-platform/**
+
+# --- re-include: deterministic tooling -------------------------------------
+!/tools/
+!/tools/*.py
+
+# ---------------------------------------------------------------------------
+# Hard denials. These win regardless of any re-inclusion above, and exist so a
+# future edit to this file cannot accidentally publish them.
+# ---------------------------------------------------------------------------
+
+# Secrets
+.env
+.env.*
+*.env
+credentials.json
+token.json
+*.pem
+*.key
+
+# Customer data / PII
+.tmp/
+*.csv
+test_contacts.csv
+
+# Tuned production prompts — competitive IP, deliberately withheld from a
+# public repository. Remove these only for a PRIVATE repo.
+/workflows/
+
+# Tools that EMBED the tuned Telugu prompts or the evaluation scenario sets.
+# Excluding /workflows/ alone would not have protected them: patch_gptoss_prompts.py
+# carries ~2,457 Telugu characters of live prompt text on its own.
+/tools/patch_gptoss_prompts.py
+/tools/dump_gptoss_prompts.py
+/tools/compare_models.py
+/tools/invest_train.py
+/tools/loan_train.py
+/tools/solar_train.py
+/tools/solar_battery.py
+
+# Local state
+.claude/
+.planning/
+.obsidian/
+.remember/
+__pycache__/
+*.pyc
+node_modules/
+.next/
+snapshots/
+backups/
+task_plan.md
+findings.md
+progress.md
