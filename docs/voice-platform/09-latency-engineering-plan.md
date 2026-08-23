@@ -46,7 +46,7 @@ This single fact resolves the confusion around latency claims:
 
 | Claim | What it is |
 |---|---|
-| "100 ms latency" | A **component** figure — e.g. Cartesia Sonic 4 time-to-first-audio ≈40 ms. Not voice-to-voice. |
+| "100 ms latency" | A **component** figure — e.g. OpenAI Realtime's 80–120 ms *processing* latency, or a vendor TTS time-to-first-audio claim. Not voice-to-voice. |
 | "sub-500 ms" | **Server-side**, measured from the platform's own endpoint decision. |
 | 1,296–1,740 ms | **Caller-experienced**, on real phone lines. The honest number. |
 
@@ -86,13 +86,13 @@ sufficient reason to act on its own.
 
 | Evidence | Reading |
 |---|---|
-| Budget in §3 closes 1,290 ms and lands at **660 ms**, 140 ms under target | Arithmetically sound |
+| Budget in §3 closes 1,200 ms and lands at **790 ms** | Meets target with **10 ms** to spare — no slack |
 | **OpenAI's flagship speech-to-speech model measures 820 ms** end-to-end | 800 ms is at the frontier, not beyond it |
 | A well-engineered cascaded pipeline beats some end-to-end models | The architecture is not the limitation |
 | Phases A–C reach ~1,200 ms with **no model training at all** | Most of the win is ordinary engineering |
 | Every lever in §3 and §5 is independently measurable | No single point of failure |
 
-**The condition: Telugu turn detection (§4).** Endpointing is 550 ms of the 1,290 ms, and
+**The condition: Telugu turn detection (§4).** Endpointing is 550 ms of the 1,200 ms, and
 LiveKit's detector has no Telugu. Without that model the programme lands at ~1,200 ms —
 still ahead of four of the five benchmarked platforms, but not at target.
 
@@ -127,22 +127,150 @@ telephony overhead is carrier physics and is not within the platform's control.
 
 Every millisecond allocated. Current figures are the incumbent's measured values.
 
+> **Corrected 2026-08-23.** An earlier version of this table budgeted 60 ms for TTS on the
+> strength of a **vendor claim** (~40 ms time-to-first-audio). The independent Coval
+> benchmark, which parses container formats to detect when audio actually arrives rather
+> than trusting vendor timestamps, measures the fastest production TTS at **155 ms P50**
+> and Cartesia Sonic-3 at **188 ms P50**. The budget below uses the measured figures. This
+> removes most of the headroom and is stated plainly rather than smoothed over.
+
 | # | Component | Now | Target | Saving | Lever |
 |---|---|---|---|---|---|
 | 1 | **End-of-speech detection** | **800 ms** | **250 ms** | **−550 ms** | **Telugu semantic turn detector (§4)** |
 | 2 | STT finalisation after endpoint | ~200 ms | 100 ms | −100 ms | Streaming partials; finalise on endpoint, don't re-decode |
-| 3 | **LLM → first usable token** | **~600 ms** | **200 ms** | **−400 ms** | **Non-reasoning model (§5.2)** |
-| 4 | TTS time-to-first-audio | ~150 ms | 60 ms | −90 ms | Cartesia Sonic 4 (~40 ms) |
+| 3 | **LLM → first spoken token** | **~600 ms** | **200 ms** | **−400 ms** | **Non-reasoning model on LPU-class inference (§5.2)** |
+| 4 | TTS time-to-first-audio | ~190 ms | 190 ms | 0 ms | Already near the measured floor — see correction above |
 | 5 | Internal transport / queuing | ~200 ms | 50 ms | −150 ms | Co-location, in-process Brain |
-| | **Server-side total** | **1,950 ms** | **660 ms** | **−1,290 ms** | |
-| | *Headroom under LAT-T1* | | *140 ms* | | |
+| | **Server-side total** | **1,990 ms** | **790 ms** | **−1,200 ms** | |
+| | *Headroom under LAT-T1* | | **10 ms** | | **None. The target is exactly met, not beaten** |
 | | Telephony overhead (not controllable) | +490 ms | +490 ms | — | Carrier physics |
-| | **Caller-experienced** | **~2,440 ms** | **~1,150 ms** | | Would rank **1st** vs §1.1 |
+| | **Caller-experienced** | **~2,480 ms** | **~1,280 ms** | | Would rank **1st** vs §1.1 |
+
+> **Consequence of the correction: there is no slack.** Every component must hit its
+> number. If TTS cannot go below ~190 ms on Telugu, then endpointing, LLM and transport
+> must each land on target for LAT-T1 to hold. Two mitigations exist and both are already
+> in the plan: backchannel acknowledgement (§6), which decouples *perceived* latency from
+> measured latency, and sentence-level streaming (§5.3), which overlaps TTS with
+> generation rather than sequencing them.
 
 > **Note on component 3.** The incumbent's `llm ttfb 0.09 s` is a decoy: on a reasoning
 > model it times the first *reasoning* token, not the first token that becomes speech.
 > Real time-to-first-spoken-token is roughly 600 ms because the model deliberates first.
 > This is why the budget shows 600 ms, not 90 ms.
+
+---
+
+## 3A. The Reference Stack
+
+The architecture keeps every provider behind a port (HLD ADR-04, LLD §1.2), so these are
+**starting hypotheses to be measured, not decisions**. But a plan that says only
+"pluggable" is not actionable, so this section names what v1 starts with and why.
+
+### ⚠ 3A.0 The honest caveat that governs this whole section
+
+**No public benchmark measures any of these providers on Telugu.**
+
+- The Coval TTS benchmark covers English, French, German, Spanish and Portuguese. Its
+  latency leader (Gradium, 155 ms) **supports only those five languages — not Telugu.**
+- STT benchmark sources state plainly that figures vary by audio condition and that
+  Telugu-specific numbers require testing with your own audio.
+- LLM TTFT figures are language-agnostic, but **Telugu tokenises expensively** (350–480
+  completion tokens per reply on this workload), so throughput matters far more than it
+  would for English.
+
+Every number below is therefore an **English-derived estimate**. This is precisely why
+STT-001 Level 0 (corpus + benchmark harness) is scheduled in Phase 1 and gates everything
+else: **the stack must be selected on measurement against your own Telugu audio, not on
+vendor pages.**
+
+### 3A.1 Speech to text — budget 100 ms
+
+| Candidate | Streaming latency | Telugu | Assessment |
+|---|---|---|---|
+| **Sarvam** (`saarika`) | Unpublished | **Native Indian focus** | **v1 baseline** — already in production here, known-good on Telugu |
+| Deepgram Flux / Nova | Lowest measured; **phone-audio optimised** | Limited Telugu | Evaluate — phone-audio tuning matters on 8 kHz calls |
+| ElevenLabs Scribe v2 Realtime | **<150 ms over WebSocket** | Broad coverage | Evaluate — strongest published streaming latency |
+| Google Chirp | Higher | **125+ languages**, strong Indic | Evaluate — likely best coverage, not best latency |
+| Reverie | Unpublished | 11+ Indian incl. Telugu | Evaluate — India-specialist |
+| **Self-hosted IndicConformer** | Yours to tune | **Telugu-native, MIT** | **The v2 destination** (STT-001 L3) — marginal cost →0 |
+
+**Decision: start on Sarvam, benchmark all six on the Level 0 corpus, switch on evidence.**
+Deepgram's phone-audio optimisation and Scribe's sub-150 ms streaming make them the two
+most likely challengers.
+
+### 3A.2 Text to speech — budget 190 ms
+
+Independent Coval benchmark, P50 TTFA, continuously re-tested, **English**:
+
+| Model | P50 TTFA | IQR | Telugu |
+|---|---|---|---|
+| Gradium | **155 ms** | **2 ms** | ✗ 5 languages only |
+| **Cartesia Sonic-3** | **188 ms** | 100 ms | ✓ in production here |
+| ElevenLabs Turbo v2.5 | 264 ms | — | ✓ |
+| ElevenLabs Flash v2.5 | 288 ms | 28 ms | ✓ |
+| Deepgram Aura-2 | 313 ms | 68 ms | Limited |
+| ElevenLabs Multilingual v2 | 1,232 ms | — | ✓ |
+| OpenAI TTS-1-HD | 2,295 ms | — | ✓ |
+
+**Two things to note.**
+
+1. **Cartesia's 100 ms IQR is the widest in the table** — 50× Gradium's. A low median with
+   a wide spread means most calls feel fast and a meaningful minority feel broken. For
+   NFR-PERF-02 (p95 ≤1,200 ms), *consistency matters as much as the median*.
+2. **Sarvam Bulbul v3** reportedly outperforms Cartesia Sonic-3 on quality evaluations and
+   is India-focused, but publishes no latency figures.
+
+**Decision: retain Cartesia Sonic-3 as v1 baseline** (in production, Telugu-capable);
+**benchmark Sarvam Bulbul v3 head-to-head on Telugu for both TTFA and IQR.** Longer term,
+AI4Bharat **Indic-TTS** is open source and covers Telugu — the route to owning TTS as
+well as STT.
+
+### 3A.3 Language model — budget 200 ms to first *spoken* token
+
+| Provider | TTFT | Throughput (Llama 3.3 70B) | Note |
+|---|---|---|---|
+| **Groq** (LPU) | **~120 ms** | ~750 tok/s | Lowest TTFT; open-weights only; already in use here |
+| **Cerebras** (WSE-3) | ~150 ms | **~2,100 tok/s** | 2.8× throughput — matters for Telugu |
+| Others | Higher | Varies | — |
+
+Voice requires TTFT under ~300 ms; both qualify.
+
+**Why throughput matters unusually much here.** Telugu replies run 350–480 completion
+tokens. At 750 tok/s a full reply takes ~530 ms; at 2,100 tok/s, ~190 ms. Sentence-level
+streaming (§5.3) means only the *first sentence* gates speech, so:
+
+```
+  first spoken token  ≈  TTFT  +  (first sentence ÷ throughput)
+  Groq:      120 ms + (~50 tok ÷ 750)   ≈ 187 ms   ✓ within budget
+  Cerebras:  150 ms + (~50 tok ÷ 2,100) ≈ 174 ms   ✓ within budget
+```
+
+Both fit. Groq wins on TTFT, Cerebras on tail behaviour for long replies.
+
+**Model choice is the open question, not the host.** The incumbent runs
+`openai/gpt-oss-120b` — a *reasoning* model whose deliberation is the 600 ms in the
+budget. A non-reasoning model is now viable (§5.2), but the candidates must be gated on
+**Telugu conversation quality**, where `llama-3.3-70b` previously "muddled through".
+
+**Decision: stay on Groq for v1** (in production, lowest TTFT); evaluate 2–3 non-reasoning
+models against the STT-001 scenario set; **quality gates the choice, speed only breaks
+ties**. Keep Cerebras as the fallback if long-reply tails hurt p95.
+
+### 3A.4 v1 reference stack, summarised
+
+| Layer | v1 choice | Rationale | v2 direction |
+|---|---|---|---|
+| Transport | **LiveKit** (self-host or Cloud) | ADR-01 | — |
+| Endpointing | **Hybrid**, then fine-tuned Telugu detector | §4 — the blocker | Telugu turn-detector model |
+| STT | **Sarvam** | Telugu-native, in production | Self-hosted IndicConformer |
+| LLM | **Groq**, non-reasoning model TBD | Lowest TTFT; quality-gated | Cerebras if tails hurt |
+| TTS | **Cartesia Sonic-3** | In production; benchmark vs Bulbul v3 | AI4Bharat Indic-TTS |
+| Telephony | Vobiz or Plivo SIP | FS-001 §3.5 | — |
+
+**This is deliberately the incumbent's stack, minus the reasoning model, plus a trained
+endpointer.** That is not timidity — it means the ~1,200 ms saving comes from *how the
+components are chosen, placed and sequenced*, not from swapping vendors and hoping. Every
+substitution above must earn its place on the Level 0 corpus.
 
 ---
 
@@ -357,11 +485,22 @@ could not perform Dograh node transitions, emitting tool calls as literal speech
 > *instructions* is worth ~0.1 s and costs objection-handling quality. That distinction
 > stands.
 
-### 5.4 TTS upgrade (−90 ms)
+### 5.4 TTS selection (0 ms saving — but protects the p95)
 
-Cartesia Sonic 4 at ≈40 ms time-to-first-audio is the current leader; ElevenLabs Flash
-v2.5 (~75 ms) is the alternative with broader language coverage. Evaluate both on Telugu
-voice quality, not latency alone.
+**No latency saving is available here.** The measured floor for production TTS is ~155 ms
+(Gradium, English-only) and Cartesia Sonic-3 is already at 188 ms. The earlier ~40 ms
+figure was a vendor claim and has been withdrawn from the budget.
+
+What *is* available is **consistency**. Cartesia's 100 ms IQR is the widest of the
+benchmarked models — 50× the tightest. A wide spread means a meaningful minority of calls
+feel broken even when the median looks good, which is exactly what NFR-PERF-02 (p95)
+exists to catch.
+
+| Action | Purpose |
+|---|---|
+| Benchmark Sarvam Bulbul v3 vs Cartesia Sonic-3 on **Telugu**, for TTFA **and IQR** | Neither is measured on Telugu publicly |
+| Judge on voice quality first, latency second | A fast voice nobody wants to listen to is worthless |
+| Track AI4Bharat Indic-TTS | Open source, covers Telugu — route to owning TTS |
 
 ### 5.5 Speculative execution (−100 ms, opportunistic)
 
