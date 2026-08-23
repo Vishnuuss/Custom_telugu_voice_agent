@@ -171,7 +171,11 @@ Priority uses MoSCoW: **M**ust, **S**hould, **C**ould, **W**on't (this release).
 | FR-TEL-04 | The system shall detect answering machines / voicemail and terminate or branch according to agent configuration. | S | v1 |
 | FR-TEL-05 | The system shall enforce a configurable maximum call duration and terminate calls exceeding it. | M | v1 |
 | FR-TEL-06 | The system shall present a configured caller line identity (CLI) on outbound calls. | M | v1 |
-| FR-TEL-07 | The system shall support warm or cold transfer of a live call to a human number. | C | v2 |
+| FR-TEL-07 | The system shall transfer a live call to a human agent, warm or cold, preserving the caller's audio session without a perceptible gap. | **M** | **v1** |
+| FR-TEL-10 | Transfer shall be invocable **as a tool by the Brain**, at any point in the conversation. | M | v1 |
+| FR-TEL-11 | On warm transfer, the system shall deliver a spoken or textual call summary to the receiving human. | S | v1 |
+| FR-TEL-12 | If no human is available, the system shall fall back to a configured path (callback capture or voicemail) and shall never drop the caller. | M | v1 |
+| FR-TEL-13 | Transfer outcome shall be recorded as a disposition identifying the receiving party. | M | v1 |
 | FR-TEL-08 | The system shall accept inbound calls. | W | v2 |
 | FR-TEL-09 | The system shall record, per call, the provider-side identifiers necessary to reconcile against provider billing records. | S | v1 |
 
@@ -196,6 +200,9 @@ Priority uses MoSCoW: **M**ust, **S**hould, **C**ould, **W**on't (this release).
 | FR-PIPE-15 | Speech synthesis speed and volume shall be configurable per agent. | S | v1 |
 | FR-PIPE-16 | The system shall begin speaking as soon as the first synthesised audio chunk is available, rather than waiting for complete synthesis. | M | v1 |
 | FR-PIPE-17 | The system shall emit configurable filler speech when a Brain response or tool call is expected to exceed a threshold. | S | v1 |
+| FR-PIPE-18 | The system shall emit a natural backchannel acknowledgement (e.g. "అవునండి", "సరే") within 200 ms of the endpoint decision, ahead of the substantive response. | M | v1 |
+| FR-PIPE-19 | The system shall begin speech synthesis on the first complete sentence of a response rather than waiting for full generation. | M | v1 |
+| FR-PIPE-20 | The endpointing strategy shall support a semantic/model-based turn detector for languages where one is available, and shall be extensible to a self-hosted turn-detection model. | M | v1 |
 
 #### 3.2.1 Speech recognition customization (STT)
 
@@ -322,21 +329,37 @@ v2, because without them level 3 becomes a retrofit rather than a configuration 
 
 ### 4.1 Performance (PERF)
 
-> **Baseline.** The incumbent system measures turn latency p50 **1.95s**, of which ~95%
-> is non-LLM. FS-001 §3.1 concludes the new platform should be expected to achieve
-> **parity with headroom**, not an immediate improvement. Introducing a custom Brain
-> service may initially increase latency. These targets are set accordingly and
-> honestly.
+> **REVISED 2026-08-23 — supersedes the earlier parity targets.** The previous targets
+> anchored to the incumbent (1.95 s) rather than to the market, which was the wrong
+> reference point. Full analysis, budget and method are in **LAT-001**.
+>
+> Measured industry reality on real phone calls: the best commercial platform achieves
+> **1,296 ms caller-experienced**; Vapi 1,558 ms. Vendor-reported figures run ~490 ms
+> lower because they measure server-side. The incumbent's 1.95 s is a server-side
+> figure, so the real gap to close is ~880 ms — identifiable and addressable.
 
 | ID | Requirement | Target |
 |---|---|---|
-| NFR-PERF-01 | Turn latency (end of caller speech → first system audio), p50, Telugu | ≤ 1.95 s (parity gate G4) |
-| NFR-PERF-02 | Turn latency, p95, Telugu | ≤ 3.0 s |
-| NFR-PERF-03 | Turn latency, p50, stretch objective after tuning | ≤ 1.50 s |
-| NFR-PERF-04 | Barge-in stop time | ≤ 300 ms |
+| **NFR-PERF-01** | **Server-side turn latency (endpoint decision → first system audio), p50, Telugu** | **≤ 800 ms** |
+| NFR-PERF-02 | Server-side turn latency, p95, Telugu | ≤ 1,200 ms |
+| NFR-PERF-03 | Caller-experienced turn latency, p50 (derived; +≈490 ms telephony) | ≤ 1,300 ms |
+| NFR-PERF-04 | Barge-in stop time | ≤ 200 ms |
 | NFR-PERF-05 | Time from campaign start to first call initiated | ≤ 10 s |
 | NFR-PERF-06 | Every turn shall have latency components recorded per FR-OBS-02 | 100% of turns |
-| NFR-PERF-07 | Filler speech shall be emitted when a response is expected to exceed | 1.2 s |
+| NFR-PERF-07 | Filler speech emitted when a response is expected to exceed | 1.2 s |
+| NFR-PERF-08 | Perceived latency with backchannel acknowledgement | ≤ 400 ms |
+| NFR-PERF-09 | Server-side turn latency, p50, English/Hindi | ≤ 600 ms |
+| **NFR-PERF-10** | **False-interruption rate at the target endpointing speed** | **≤ incumbent at 0.8 s** |
+| NFR-PERF-11 | Transfer decision → human connected, with continuous audio | ≤ 3 s |
+
+> **NFR-PERF-10 is not optional and is reported with every latency figure.** Faster
+> endpointing buys interruptions. Callers on the incumbent already protested being cut
+> off in Telugu at 0.35 s. A latency win purchased with interruptions is not a win.
+
+> **Dependency.** NFR-PERF-01 is unreachable in Telugu without a Telugu turn-detection
+> model. LiveKit's turn detector supports 14 languages including Hindi but **not
+> Telugu**, and silence-threshold endpointing cannot safely go below ~0.6 s — which alone
+> consumes 75% of an 800 ms budget. See LAT-001 §4.
 
 > **Measurement note.** Model TTFB shall not be used as a proxy for responsiveness.
 > On reasoning models it measures the first *reasoning* token, not the first spoken

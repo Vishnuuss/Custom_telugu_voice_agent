@@ -19,6 +19,7 @@ BS Wealth Finance's outbound Indian-language calling.
 | 6 | [Deployment & Operations Plan](06-deployment-ops.md) | *How do we run it safely?* | — |
 | 7 | [Project Management Plan](07-project-management-plan.md) | *Who does what, when, and what could go wrong?* | — |
 | 8 | [STT Customization Workstream](08-stt-customization-plan.md) | *How do we actually fix Telugu speech recognition?* | S-G0…S-G5 |
+| 9 | [Latency Engineering Plan](09-latency-engineering-plan.md) | *How do we get to sub-800ms?* | L-G1…L-G6 |
 
 Each document also exists as `.docx` alongside its `.md`.
 Regenerate with `python tools/md_to_docx.py`.
@@ -27,13 +28,11 @@ Regenerate with `python tools/md_to_docx.py`.
 
 ## The short version
 
-**The project is recommended — but not for the reason it was originally proposed.**
+**The project is recommended.** Three justifications, each decisive on its own.
 
-The latency argument does not survive measurement. Orchestration is under 5% of a
-1.95-second turn; rebuilding it would recover less than 0.1 s. Expect **latency parity**
-from v1, not improvement.
-
-The two justifications that do hold, each decisive on its own:
+> **Revised 2026-08-23.** An earlier version of this set targeted *latency parity* with
+> the incumbent. That anchored to the system being replaced instead of to the market and
+> was wrong. Latency is now a primary goal — see justification 3 and document 9.
 
 1. **Architectural control.** Dograh's node graph cannot make tool calls
    mid-conversation, silently drops edges when saved, and can't express the nuanced
@@ -44,6 +43,12 @@ The two justifications that do hold, each decisive on its own:
    IndicConformer. No managed platform offers this at any price, and it is the single
    biggest determinant of perceived quality on these calls.
    → Planned in full in [document 8](08-stt-customization-plan.md).
+
+3. **Latency leadership.** The orchestrator itself is not slow — but owning it is what
+   makes three decisions yours: *when to stop listening*, *which model reasons*, and
+   *where components run*. Those are worth ~1,290 ms. Target: **≤800 ms server-side**,
+   which would lead every benchmarked commercial platform.
+   → Planned in full in [document 9](09-latency-engineering-plan.md).
 
 ---
 
@@ -65,17 +70,54 @@ sets out the alternative if you want L3 in v1 instead — your call.
 
 ---
 
+## Getting to 800ms — the budget
+
+Measured reality first, because the numbers circulating are misleading. On **real phone
+calls**, caller-experienced p50: Telnyx 1,296 ms · ElevenLabs 1,424 ms · Bland 1,520 ms ·
+**Vapi 1,558 ms** · Retell 1,740 ms. **Nobody is sub-second.** Vendor figures run ~490 ms
+lower because they measure server-side, not what the caller hears.
+
+*"100 ms" is a single-component number* — Cartesia's time-to-first-audio is ~40 ms.
+Voice-to-voice 100 ms is below PSTN round-trip. It does not exist.
+
+| Component | Now | Target | Lever |
+|---|---|---|---|
+| **End-of-speech detection** | **800 ms** | **250 ms** | **Telugu turn detector — the blocker** |
+| STT finalisation | 200 ms | 100 ms | Streaming partials |
+| **LLM → first spoken token** | **600 ms** | **200 ms** | **Non-reasoning model** |
+| TTS first audio | 150 ms | 60 ms | Cartesia Sonic 4 |
+| Transport / queuing | 200 ms | 50 ms | Co-location in India |
+| **Server-side total** | **1,950 ms** | **660 ms** | |
+| Telephony (not controllable) | +490 ms | +490 ms | Carrier physics |
+| **Caller experiences** | ~2,440 ms | **~1,150 ms** | Would rank **1st** |
+
+### ⚠ The blocker: LiveKit's turn detector doesn't support Telugu
+
+It covers 14 languages — including **Hindi**, not Telugu. Silence-based endpointing can't
+safely go below ~0.6 s (your callers already protested at 0.35 s), and 0.6 s alone eats
+75% of an 800 ms budget. **So a Telugu turn-detector model has to be trained.** 19 of the
+42 latency days are exactly that. Precedent exists — the same was done for Thai.
+
+**Sequencing:** the cheap wins (co-location, non-reasoning model, streaming TTS) reach
+~1,200 ms with *no model training at all* — already better than 4 of the 5 platforms
+above. The turn detector buys the last 400 ms.
+
+**Every latency target is paired with a false-interruption target.** Faster endpointing
+buys interruptions, and a latency win purchased with interruptions is not a win.
+
+---
+
 ## Scope
 
 | | |
 |---|---|
-| **v1 (non-negotiable)** | Outbound calling + campaigns + STT levels 0–2 |
+| **v1 (non-negotiable)** | Outbound calling + campaigns + STT levels 0–2 + ≤800 ms latency + live human transfer |
 | **v2** | Appointment booking, agent-builder UI, inbound, **fine-tuned ASR (L3)** |
 | **Never** | Multi-tenancy, client logins, billing — you operate it, clients don't log in |
 
 **Stack:** SIP trunk → LiveKit (WebRTC/SIP) → pluggable STT → your Brain → pluggable TTS
 
-**Estimate:** ~146 engineering-days for v1, ~190 with contingency, plus 32 planned for
+**Estimate:** ~188 engineering-days for v1, ~244 with contingency, plus 32 planned for
 the v2 STT workstream. No calendar date asserted — that depends on your availability
 alongside client work.
 
@@ -118,5 +160,6 @@ Recorded because it is how the current system was successfully diagnosed:
 
 - One call at a time; one change between calls
 - Analyse the transcript before the next call
-- Never trim prompts for latency — worth ~0.1 s, and objection handling is the payload
+- Never trim *instructions* for latency — worth ~0.1 s, and objection handling is the payload.
+  Shortening *spoken output* does pay, because Telugu tokenises expensively.
 - Diagnose the running system before redesigning it

@@ -39,7 +39,8 @@ recognition layer and unrestricted mid-conversation tool calling.
 
 | Non-goal | Why |
 |---|---|
-| Faster than Dograh in v1 | FS-001 §3.1 — orchestration is <5% of turn latency. Parity is the honest target. |
+| ~~Faster than Dograh in v1~~ **← REVERSED 2026-08-23** | Superseded. Latency is now a **primary goal**: server-side p50 ≤800 ms (LAT-001). The original reasoning anchored to the incumbent instead of the market. |
+| Voice-to-voice 100 ms | Not achievable by anyone — it is below PSTN round-trip. That figure is a single-component TTS number (~40 ms time-to-first-audio), not conversational latency. Best measured platform on real calls: 1,296 ms. |
 | A SaaS product | Operator-run only |
 | Replacing Dograh in one step | Per-vertical migration (DEP-001 §7) |
 | Appointment booking in v1 | v2; foundation built (FR-BRAIN-05) |
@@ -227,9 +228,32 @@ Detailed in **STT-001 §8**. Summarised here.
 | 7 | Test assets | 16 |
 | 8 | Deployment and operations | 15 |
 | **9** | **STT customization (v1 portion — L0/L1/L2)** | **13** |
-| | **Total (v1)** | **146 engineering-days** |
-| | **+30% contingency** | **~190 engineering-days** |
-| | *WBS 9.4 — Level 3, v2* | *32 (planned, not in v1)* |
+| **10** | **Latency engineering — ≤800 ms target (LAT-001)** | **42** |
+| | **Total (v1)** | **188 engineering-days** |
+| | **+30% contingency** | **~244 engineering-days** |
+| | *WBS 9.4 — STT Level 3, v2* | *32 (planned, not in v1)* |
+
+### WBS 10 — Latency engineering
+
+Detailed in **LAT-001 §9**. Added 2026-08-23 when the sponsor rejected the parity target.
+
+| ID | Package | Days |
+|---|---|---|
+| 10.1–10.3 | Instrumentation, dual-channel measurement, provider co-location | 8 |
+| 10.4–10.5 | Non-reasoning LLM switch, sentence-level streaming TTS, Sonic 4 | 7 |
+| 10.6 | Backchannel acknowledgement | 3 |
+| **10.7–10.10** | **Telugu turn detector: annotation, fine-tune, serving, A/B** | **19** |
+| 10.12 | Live human transfer | 5 |
+| | **v1 subtotal** | **42** |
+
+> **19 of these 42 days are the Telugu turn detector alone**, and they are what make the
+> ≤800 ms target reachable. LiveKit's turn detector supports 14 languages including Hindi
+> but **not Telugu**, and silence-based endpointing cannot go below ~0.6 s safely — 75%
+> of the budget. Without those 19 days the programme lands at ~1,200 ms, not 800 ms.
+> That is still better than four of the five benchmarked commercial platforms.
+
+> **Sequencing matters here.** LAT-001 §12 orders the work cheap-and-certain first:
+> phases A–C reach ~1,200 ms with no model training at all. Phase D buys the last 400 ms.
 
 **Estimating assumptions**, stated so they can be challenged:
 

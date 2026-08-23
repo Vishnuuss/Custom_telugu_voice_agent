@@ -111,11 +111,35 @@ not the vendor.
 
 **Conclusion: a new orchestrator will not, by itself, be faster.** Any latency
 improvement must come from changing components (turn-detection model, STT, TTS,
-non-reasoning LLM) — and §3.3 shows the new platform makes those changes *possible*,
-which is the real, indirect latency benefit. Expect the honest v1 outcome to be *latency
-parity with more headroom*, not an immediate step change. Introducing a custom brain
-service into the request path may temporarily *increase* latency; this is anticipated
-and mitigated in the SRS as a measurable NFR.
+non-reasoning LLM) — and §3.3 shows the new platform makes those changes *possible*.
+
+> ### ⚠ REVISED 2026-08-23 — this section's conclusion was wrong
+>
+> The analysis above is correct; the conclusion drawn from it was not. It originally
+> recommended targeting **latency parity (1.95 s)**, which anchored to the system being
+> replaced rather than to the market. The sponsor rejected that, correctly.
+>
+> Measured reality on real phone calls: the best commercial platform reaches **1,296 ms**
+> caller-experienced, Vapi **1,558 ms**, and vendor-reported figures run ~490 ms lower
+> because they are measured server-side. The incumbent's 1.95 s is server-side, so the
+> genuine gap is **~880 ms**, and it decomposes into three decisions the platform owns:
+>
+> | Decision | Recoverable |
+> |---|---|
+> | When to stop listening (turn detection) | 550 ms |
+> | Which model reasons | 400 ms |
+> | Where components run, and how output streams | 340 ms |
+>
+> **Revised target: server-side p50 ≤ 800 ms** (≈1,300 ms caller-experienced), which
+> would lead the benchmarked field. The orchestrator is not slow — but *owning* it is
+> what makes those three component decisions yours. Latency therefore belongs on the
+> justification list after all.
+>
+> The blocker is that LiveKit's turn detector covers 14 languages including Hindi but
+> **not Telugu**, and silence-based endpointing cannot safely go below ~0.6 s. A Telugu
+> turn-detection model is consequently required, not optional.
+>
+> **Full analysis, latency budget, workstream and risks: LAT-001.**
 
 ### 3.2 The structural limitation (valid justification #1)
 
@@ -495,11 +519,13 @@ To be sent before implementation begins. Suggested text:
 
 The project is **feasible and recommended**, on revised grounds.
 
-The latency argument does not survive measurement and must be abandoned as a
-justification; retaining it would set an expectation the project cannot meet, since v1
-should be expected to reach latency *parity*, not improvement.
+**Revised 2026-08-23.** The latency argument survives measurement after all — but not in
+its original form. The orchestrator is not the bottleneck; the *component decisions the
+orchestrator owns* are. Measured against the market rather than against the incumbent,
+there is ~880 ms of recoverable server-side latency, and a target of **≤800 ms
+server-side** would lead every benchmarked commercial platform. See §3.1 and LAT-001.
 
-The sound justification is twofold and each part is decisive on its own:
+The justification is therefore threefold, and each part is decisive on its own:
 
 1. **Architectural control** — mid-conversation tool calling and non-graph conversation
    design, without which sales and appointment booking cannot be built at all
@@ -507,6 +533,11 @@ The sound justification is twofold and each part is decisive on its own:
    fine-tune Telugu ASR on proprietary in-domain audio, which is the single largest
    determinant of perceived quality on these calls and is unobtainable from any managed
    vendor at any price
+
+3. **Latency leadership** — choosing the endpointing model, the reasoning model and the
+   serving region, and training a **Telugu turn detector that does not otherwise exist**.
+   Together these target ≤800 ms server-side, ahead of every benchmarked platform. None
+   of these decisions are available on a managed platform.
 
 Proceed to SRS-001 upon sign-off of this document and receipt of the §3.5 answer.
 
