@@ -40,7 +40,7 @@ recognition layer and unrestricted mid-conversation tool calling.
 | Non-goal | Why |
 |---|---|
 | ~~Faster than Dograh in v1~~ **← REVERSED 2026-08-23** | Superseded. Latency is now a **primary goal**: server-side p50 ≤800 ms (LAT-001). The original reasoning anchored to the incumbent instead of the market. |
-| Voice-to-voice 100 ms | Not achievable by anyone — it is below PSTN round-trip. That figure is a single-component TTS number (~40 ms time-to-first-audio), not conversational latency. Best measured platform on real calls: 1,296 ms. |
+| Voice-to-voice 100 ms | Not achievable by anyone — it is below PSTN round-trip. That figure is a single-component number — OpenAI Realtime's 80–120 ms *processing* latency, or a vendor TTS claim — not conversational latency. Best measured platform on real calls: 1,296 ms. |
 | A SaaS product | Operator-run only |
 | Replacing Dograh in one step | Per-vertical migration (DEP-001 §7) |
 | Appointment booking in v1 | v2; foundation built (FR-BRAIN-05) |
