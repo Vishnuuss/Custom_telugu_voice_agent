@@ -14,6 +14,19 @@
 # --- re-include: repository metadata ---------------------------------------
 !/.gitignore
 !/README.md
+!/AGENTS.md
+
+# --- re-include: THE LATENCY CONSTRAINT -------------------------------------
+# latency_budget.yaml is loaded at runtime and validated in CI. It is code,
+# not documentation.
+!/latency_budget.yaml
+!/vaani/
+!/vaani/*.py
+!/tests/
+!/tests/*.py
+!/.github/
+!/.github/workflows/
+!/.github/workflows/*.yml
 
 # --- re-include: SDLC documentation ----------------------------------------
 !/docs/

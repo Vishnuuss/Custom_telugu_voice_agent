@@ -1,0 +1,36 @@
+name: Latency Budget
+
+# The 800ms target is enforced here. A PR that inflates a component budget
+# beyond what the target allows, or that breaks span enforcement, fails.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  budget:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: python -m pip install --quiet pytest pyyaml
+
+      - name: Validate the budget adds up
+        run: python -m vaani.check --confidence
+
+      - name: Enforce the gates
+        run: python -m pytest tests/ -q
+
+      - name: Report budget confidence
+        if: always()
+        run: |
+          echo "### Latency budget" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          python -m vaani.check --confidence >> $GITHUB_STEP_SUMMARY 2>&1
+          echo '```' >> $GITHUB_STEP_SUMMARY
