@@ -85,11 +85,11 @@ Voice-to-voice 100 ms is below PSTN round-trip. It does not exist.
 | **End-of-speech detection** | **800 ms** | **250 ms** | **Telugu turn detector — the blocker** |
 | STT finalisation | 200 ms | 100 ms | Streaming partials |
 | **LLM → first spoken token** | **600 ms** | **200 ms** | **Non-reasoning model** |
-| TTS first audio | 150 ms | 60 ms | Cartesia Sonic 4 |
+| TTS first audio | 190 ms | 190 ms | **No saving available** — measured floor is ~155 ms |
 | Transport / queuing | 200 ms | 50 ms | Co-location in India |
-| **Server-side total** | **1,950 ms** | **660 ms** | |
+| **Server-side total** | **1,990 ms** | **790 ms** | Only 10 ms under target |
 | Telephony (not controllable) | +490 ms | +490 ms | Carrier physics |
-| **Caller experiences** | ~2,440 ms | **~1,150 ms** | Would rank **1st** |
+| **Caller experiences** | ~2,480 ms | **~1,280 ms** | Would rank **1st** |
 
 ### ⚠ The blocker: LiveKit's turn detector doesn't support Telugu
 

@@ -240,7 +240,7 @@ Detailed in **LAT-001 §9**. Added 2026-08-23 when the sponsor rejected the pari
 | ID | Package | Days |
 |---|---|---|
 | 10.1–10.3 | Instrumentation, dual-channel measurement, provider co-location | 8 |
-| 10.4–10.5 | Non-reasoning LLM switch, sentence-level streaming TTS, Sonic 4 | 7 |
+| 10.4–10.5 | Non-reasoning LLM switch, sentence-level streaming TTS, TTS benchmark on Telugu | 7 |
 | 10.6 | Backchannel acknowledgement | 3 |
 | **10.7–10.10** | **Telugu turn detector: annotation, fine-tune, serving, A/B** | **19** |
 | 10.12 | Live human transfer | 5 |

@@ -570,7 +570,7 @@ Targets are meaningless without a measurement method that cannot flatter itself.
 | 10.2 | Dual-channel real-call measurement harness (LAT-M3) | 3 | v1 |
 | 10.3 | Provider region audit and co-location | 3 | v1 |
 | 10.4 | Non-reasoning LLM evaluation and switch | 4 | v1 |
-| 10.5 | Sentence-level streaming TTS + Sonic 4 upgrade | 3 | v1 |
+| 10.5 | Sentence-level streaming TTS + Telugu TTS benchmark (TTFA and IQR) | 3 | v1 |
 | 10.6 | Backchannel implementation (FR-PIPE-18) | 3 | v1 |
 | 10.7 | **Telugu turn-boundary annotation** (extends STT-001 9.1.3/9.1.4) | 4 | v1 |
 | 10.8 | **Telugu turn-detector fine-tune (TD-3/TD-4)** | 8 | v1 |
