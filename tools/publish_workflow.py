@@ -28,7 +28,20 @@ for line in Path(".env").read_text(encoding="utf-8").splitlines():
     if "=" in line and not line.startswith("#"):
         k, v = line.split("=", 1)
         env[k.strip()] = v.strip().strip('"').strip("'")
-BASE = "https://voice.bswealthfinance.com"
+# Which server to publish on. This tool was written when there was one, and it
+# was voice.bswealthfinance.com. The dashboard moved to Vaani on 2026-09-03 and
+# the agents that matter now live there, so the server is a choice rather than a
+# constant -- but it still DEFAULTS to voice, because silently repointing a
+# publish (the one action that changes what real callers hear) would be a worse
+# surprise than having to pass a flag.
+#
+#     python tools/publish_workflow.py --workflow 4 --server vaani --dry-run
+SERVERS = {
+    "voice": ("https://voice.bswealthfinance.com", "DOGRAH_API_KEY"),
+    "vaani": (env.get("VAANI_SERVER_API_URL", "https://vaani-api.bswealthfinance.com"),
+              "VAANI_SERVER_API_KEY"),
+}
+BASE = SERVERS["voice"][0]
 KEY = env["DOGRAH_API_KEY"]
 
 
@@ -57,8 +70,19 @@ def show(wid: int, label: str) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--workflow", type=int, required=True)
+    ap.add_argument("--server", choices=sorted(SERVERS), default="voice",
+                    help="which install to publish on (default: voice)")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
+
+    global BASE, KEY
+    BASE, key_name = SERVERS[a.server]
+    BASE = BASE.rstrip("/")
+    if key_name not in env:
+        print(f"{key_name} is not set in .env")
+        return 1
+    KEY = env[key_name]
+    print(f"server: {a.server} ({BASE})")
 
     show(a.workflow, "BEFORE:")
     draft = [v for v in versions(a.workflow) if v.get("status") == "draft"]
