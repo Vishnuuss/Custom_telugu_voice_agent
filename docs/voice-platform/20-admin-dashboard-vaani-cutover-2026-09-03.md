@@ -270,6 +270,87 @@ placing no calls and starting no campaigns:
 | Campaigns | CSV upload (presigned) | 200, `vaani-storage.bswealthfinance.com` |
 | Calls | open a call's detail | 200 |
 
+## Four real calls, placed the way the dashboard places them
+
+Run on 2026-09-04 through the exact sequence of `app/api/calls/single/route.ts`
+— same lead lookup, credit pre-flight, `campaign_runs` reservation,
+compare-and-set claim, one-row CSV, provider campaign with `max_retries: 0`,
+start. Every call to the same test number, one at a time.
+
+| agent | run | result | in the dashboard |
+|---|---|---|---|
+| loan (wf3) | 571 | answered, 29s | logged, lead scored 100 |
+| solar (wf4) | 573 | **no answer** | logged as `no_answer`, lead released |
+| investing (wf5) | 578 | answered, 98s | logged, scored 50, **billed 8 credits** |
+| real estate (wf6) | 579 | answered, 114s | logged, scored 100, **billed 8 credits** |
+
+Twelve links confirmed on each answered call: run row → Vaani campaign → run →
+recording and transcript → `call_logs` row → `provider` stamped → media URLs
+stored → outcome and duration → lead updated → metered → provider stamped in
+billing → ledger debited.
+
+The no-answer is worth its own line: it correctly produced **no** recording URL.
+A call that never connects has no recording file, while `recording_public_url`
+is built from the access token regardless and would 404. Storing nothing is the
+right answer, and the sweep does.
+
+### The first call exposed a money bug
+
+Run 571 is why placing a real call mattered.
+
+```
+12:59:40  the call connects
+13:00:09  it ends — 29 seconds of talk time
+13:00:10  the ten-minute billing sweep reads it while it is still in flight
+          and writes duration_seconds 0, outcome 'unknown'
+```
+
+`call_usage` rows are insert-if-absent, so that first write is what the client
+is charged on for ever. `postDebit` found zero talk time, stamped `billed_at` to
+stop reconsidering it, and a real conversation was settled at **zero**. It
+cannot self-correct: every later sweep sees the row and skips it.
+
+`meterSingleRun` already refused exactly this case and its comment spells out
+the damage. `meterCampaign` — the cron path that meters everything — never got
+the same guard. `isMeterable()` now gates it. `is_completed` is the test rather
+than `duration > 0`, because a *finished* call with no talk time is a genuine
+no-answer that must be recorded once as unbillable.
+
+The same premature write reached `call_logs` too, via the webhook at hang-up:
+that 29-second call was stored as `duration: 0` with no recording, and
+`applyRunResult` returned `'duplicate'` without looking. `backfillIncompleteLog`
+now repairs a zero duration and missing media from the authoritative run —
+facts only. Score, qualification, lead status, retry_count and notes are left
+alone, because re-applying those on every tick is the runaway migration 006 had
+to clean up after.
+
+Proof it works: run 578, a 98-second call, metered at 98 seconds and billed 8
+credits (two minutes, rounded up). Balance 40,000 → 32,000 → 24,000 milli across
+the two answered calls.
+
+## Two agent defects found on the real-estate call — NOT fixed
+
+Both are in the agent's behaviour, not the plumbing, and are left alone by
+instruction. They are real and reproducible on run 579's transcript.
+
+**It re-asks what it has already been told.** The caller gave the location at
+13:37:04 and the timeline at 13:37:19. At 13:37:21 it asked for the location
+again, and at 13:37:26 for the property type again. The caller's last words on
+the call were:
+
+> ఎన్ని సార్లు చెప్పాలి మీకు ఆన్సర్ లో ఒకసారి గుర్తుపెట్టుకోరా
+> *(How many times must I tell you? Can't you remember an answer once?)*
+
+The extraction still came out complete and correct — plot, Andhra Pradesh,
+50–60 crore, day after tomorrow, score 100 — so this costs goodwill rather than
+data.
+
+**It read its own workflow name aloud.** Asked "who are you?", it answered:
+
+> నేను ప్రియ, **BS Wealth Finance Property — qualification** నుంచి మాట్లాడుతున్నాను
+
+"— qualification" is the internal workflow name, not a company.
+
 ## What is still outstanding
 
 ### The two migrations are not applied
