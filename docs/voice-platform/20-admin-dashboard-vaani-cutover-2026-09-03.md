@@ -222,6 +222,54 @@ They cover the provider identity and its degradation path, the ledger key on
 both sides of the cutover, the billable/test-call rules, the whole-minute
 billing maths, and the exact media-url pair taken from live run 400.
 
+### 4. The AI Agent page could not show a script, and its save button destroyed one
+
+Reported as "I am not able to see the agent scripts". Two bugs, same cause.
+
+A Vaani agent keeps two very different pieces of text on **one** node:
+
+| field | loan agent | what it is |
+|---|---|---|
+| `data.greeting` | 88 chars | the opening line, spoken verbatim |
+| `data.prompt` | **4,302 chars** | the script driving the rest of the call |
+
+`app/api/agent/prompts/route.ts` was written for the older four-node graph,
+where a start node had one piece of text worth editing. So:
+
+- **The script was never sent to the browser.** `readNodeText` returns the
+  greeting and stops. The page showed an 88-character opening line, plus three
+  permanently empty boxes for parts these agents do not have — which reads as
+  the script having been lost.
+- **Saving the opening line would have destroyed the script.** The save path set
+  `node.data.prompt = start` as well as the greeting, then published. Pressing
+  Save on the opening line would have replaced all 4,302 characters of the loan
+  script with one sentence, live on the phone line. Nobody pressed it.
+- `MAX_PROMPT_LENGTH` was **4000** — shorter than the loan script — so that
+  script could not have been saved even through a correct path.
+
+The two fields are now addressed separately: `start` writes only the greeting on
+a `greeting_type: 'text'` node, and a new `script` key writes only the prompt.
+`llm`-mode start nodes still write both, because there the greeting genuinely is
+generated from the prompt. The cap is 20,000. The page renders only the blocks
+the loaded agent actually has, and gives the script a tall monospace box.
+
+Eleven tests pin it, including the exact regression: editing the opening line
+must leave the script byte-identical.
+
+## Every dashboard operation, checked against Vaani
+
+All 18 endpoints the dashboard depends on answer correctly — verified read-only,
+placing no calls and starting no campaigns:
+
+| Page | Operation | Result |
+|---|---|---|
+| AI Agent | load each of the 4 scripts | 200, opening line + script both present |
+| AI Agent | Save & publish | version API reachable |
+| Campaigns | list / read / progress / runs | 200 |
+| Campaigns | Start / Pause / Resume | routes exist |
+| Campaigns | CSV upload (presigned) | 200, `vaani-storage.bswealthfinance.com` |
+| Calls | open a call's detail | 200 |
+
 ## What is still outstanding
 
 ### The two migrations are not applied
