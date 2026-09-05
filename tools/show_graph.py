@@ -88,6 +88,11 @@ def main() -> int:
         print(f"  add_global_prompt={d.get('add_global_prompt')} "
               f"allow_interrupt={d.get('allow_interrupt')} "
               f"is_start={d.get('is_start')} is_end={d.get('is_end')}")
+        if d.get("greeting_type") or d.get("greeting_text"):
+            print(f"  greeting_type={d.get('greeting_type')} "
+                  f"greeting_text={json.dumps(d.get('greeting_text'), ensure_ascii=False)}")
+        if n.get("type") == "qa":
+            print(f"  QA DATA: {json.dumps(d, ensure_ascii=False, indent=2)[:cut]}")
         for field in ("prompt", "delayed_start_prompt", "extraction_prompt",
                       "extraction_variables"):
             val = d.get(field)

@@ -21,6 +21,25 @@ BS Wealth Finance's outbound Indian-language calling.
 | 8 | [STT Customization Workstream](08-stt-customization-plan.md) | *How do we actually fix Telugu speech recognition?* | S-G0…S-G5 |
 | 9 | [Latency Engineering Plan](09-latency-engineering-plan.md) | *How do we get to sub-800ms?* | L-G1…L-G6 |
 
+### Build reports
+
+Documents 1–9 are the plan. These record what was actually built, what broke,
+and what the measurements said — written after the work, against real call logs.
+
+| # | Document | What it answers |
+|---|---|---|
+| 10 | [Dograh vs Vaani Architecture](10-dograh-vs-vaani-architecture-report.md) | *What did the open-source base give us, and what did Vaani add?* |
+| 11 | [Engineering Report, 27 Aug](11-vaani-work-report-2026-08-27.md) | *The prompt, guardrail and turn-detector work* |
+| 12 | [Engineering Report, 28 Aug](12-vaani-work-report-2026-08-28.md) | *Repeated questions, ignored questions, fillers, booking, the boosted detector* |
+| 13 | [Engineering Report, 29 Aug](13-vaani-work-report-2026-08-29.md) | *Two-sided endpointing: why the agent talked over the caller, and the 1,393-clip measurement* |
+| 14 | [Telugu Voice Register Guide](14-telugu-voice-register-guide.md) | *How the agent should actually sound to a Telugu caller* |
+| 15 | [Engineering Report, 30 Aug](15-vaani-work-report-2026-08-30.md) | *The four BS Wealth agents, built on the shared layers* |
+| 16 | [Booking Defects, 30 Aug](16-vaani-booking-defects-2026-08-30.md) | *What broke in the appointment flow, and what fixed it* |
+| 17 | [Listening Report, 30 Aug](17-vaani-listening-2026-08-30.md) | *What the recordings say the agent is still getting wrong* |
+| 18 | [Shared Layer Training, 31 Aug](18-vaani-shared-layer-training-2026-08-31.md) | *Training layers 1, 2 and 4 once, for every client* |
+| 19 | [HDFC Agent Simplified, 3 Sep](19-hdfc-agent-simplified-2026-09-03.md) | *Cutting the loan agent to a one-minute, three-turn handoff call* |
+| 20 | [Dashboard Cutover to Vaani, 3 Sep](20-admin-dashboard-vaani-cutover-2026-09-03.md) | *Pointing admin.bswealthfinance.com at Vaani, and what the four agents still need published* |
+
 Each document also exists as `.docx` alongside its `.md`.
 Regenerate with `python tools/md_to_docx.py`.
 

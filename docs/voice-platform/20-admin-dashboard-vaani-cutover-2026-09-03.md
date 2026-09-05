@@ -351,6 +351,65 @@ data.
 
 "— qualification" is the internal workflow name, not a company.
 
+## Handover health check, 5 September
+
+### Recordings: fixed a privacy hole and a Safari failure
+
+The player pointed straight at the provider's URL. Those links carry a permanent
+access token and need **no login**, so a real customer's phone call was
+reachable by anyone who could read the page HTML, copy a link, or export browser
+history. Everything else in the dashboard is behind the session; recordings were
+not. (Transcripts were already proxied for exactly this reason.)
+
+The provider also serves them as `application/octet-stream`. Verified on runs 578
+and 579: genuine WAV files, 1.6 MB and 1.8 MB, `Accept-Ranges: bytes`, `206` on a
+range request — but mislabelled. Chrome sniffs the RIFF/WAVE header and plays
+them; Safari and iOS are stricter and can fail silently, so the client would have
+reported "recordings don't work on my iPhone" and been right.
+
+`/api/calls/[id]/recording` now streams it: SSRF-safe by construction like the
+transcript route (the upstream URL comes from the `call_logs` row named by `:id`,
+never from the request), Range forwarded and `206` preserved so seeking works,
+`Content-Type: audio/wav`, and `private, no-store` because it is somebody's phone
+call. Verified: unauthenticated requests now get **401**.
+
+### Foundations checked
+
+| Check | Result |
+|---|---|
+| Row-level security, client database | anon key reads **0 rows**, writes rejected `42501` |
+| Coolify env "duplicates" | **not duplicates** — a production row and an `is_preview` row per key, which is normal |
+| Leads stuck in `queued` | 0 |
+| Campaign credit pre-flight | refuses below `minimum × concurrency`; warns without blocking when the balance will not cover the run |
+| Dashboard operations against Vaani | 18/18 |
+| Test suite | 62 passing |
+
+Lead inventory a campaign can dial: solar 7 new + 4 no-answer, loan 23 no-answer
+(0 new), investing 1 new, real estate 1 new.
+
+### A regression appeared on the loan agent, not from this work
+
+Workflow 3 was republished to **v7 at 15:35 on 5 September**, and that version
+drops the Telugu `ask` on `loan_required`:
+
+| version | `loan_required.ask` |
+|---|---|
+| v5, v6 | `మీకు ఇప్పుడు loan ఏమైనా కావాలా అండి?` |
+| **v7 (live)** | **empty** |
+
+With no `ask`, `compiler.spoken_question()` falls back to the extraction hint, so
+the live loan agent — the busiest line, 387 leads — reads out:
+
+> True only if the customer said they currently need a loan
+
+This is the same defect fixed on workflows 5 and 6 on 3 September, reintroduced
+on 3 by a later edit. Solar, investing and real estate also carry unpublished
+drafts created at 15:24 the same day; their extraction schemas are unchanged, so
+only prompt text differs from what is live.
+
+Not corrected here: prompt work was explicitly out of scope for this pass, and
+someone was editing these workflows the same afternoon.
+
 ## What is still outstanding
 
 ### The two migrations are not applied

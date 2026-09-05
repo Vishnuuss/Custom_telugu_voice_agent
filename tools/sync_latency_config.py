@@ -54,6 +54,13 @@ def code_defaults() -> dict:
         "llm_hedge": w.DEFAULT_LLM_HEDGE,
         "stt_finalisation_budget_secs": w.DEFAULT_STT_FINALISATION_BUDGET_SECS,
         "smart_turn_stop_secs": w.DEFAULT_SMART_TURN_STOP_SECS,
+        # Two-sided endpointing. Not in workflow 2's stored config as of
+        # 2026-08-29, so the defaults apply -- but they are printed here anyway,
+        # because "not set" and "set to the same value" look identical from the
+        # outside and only one of them survives a code change.
+        "endpoint_min_secs": w.DEFAULT_ENDPOINT_MIN_SECS,
+        "endpoint_max_secs": w.DEFAULT_ENDPOINT_MAX_SECS,
+        "endpoint_fragment_floor_secs": w.DEFAULT_ENDPOINT_FRAGMENT_FLOOR_SECS,
         "turn_stop_strategy": w.DEFAULT_TURN_STOP_STRATEGY,
         "turn_wait_for_transcript": w.DEFAULT_TURN_WAIT_FOR_TRANSCRIPT,
     }
