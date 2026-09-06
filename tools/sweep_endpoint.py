@@ -28,29 +28,11 @@ import api.services.vaani.telugu_turn as tt
 
 # name -> the parameters that differ from the shipped defaults.
 GRID = {
-    "SHIPPED (6 Sep)":        {},
-    "unsure_floor 0.50":      {"unsure_floor_secs": 0.50},
-    "unsure_floor 0.80":      {"unsure_floor_secs": 0.80},
-    "fragment_floor 0.80":    {"fragment_floor_secs": 0.80},
-    "min_endpoint 0.30":      {"min_endpoint_secs": 0.30},
-    "min_endpoint 0.50":      {"min_endpoint_secs": 0.50},
-    "threshold 0.99":         {"threshold": 0.99},
-    "band 1.0 (floor always)": {"unsure_band": 1.0},
-    "band 1.0 + floor 0.50":  {"unsure_band": 1.0, "unsure_floor_secs": 0.50},
-    "band 1.0 + floor 0.80":  {"unsure_band": 1.0, "unsure_floor_secs": 0.80},
-    # The blind-turn gate: only turns whose transcript has NOT arrived are
-    # slowed. Measured 6 Sep: that is 68.8% of decisions, and it is where the
-    # cut-offs are, because stale text from a finished sentence reads as
-    # complete and leaves the immediate path open.
-    "blind gate 250ms":       {"blind_min_silence_ms": 250},
-    "blind gate 400ms":       {"blind_min_silence_ms": 400},
-    "blind gate 600ms":       {"blind_min_silence_ms": 600},
-    "blind gate 800ms":       {"blind_min_silence_ms": 800},
-    # Priced against a perfect completeness signal, where 0.45 -> 1.00 takes
-    # cut-offs from 18.0% to 7.5% at NO latency cost. The floor only applies to
-    # turns the text says are unfinished, and on those the caller is still
-    # talking -- so the hold is not a wait, it is cancelled by his own speech.
-    "fragment_floor 1.00":    {"fragment_floor_secs": 1.00},
+    "SHIPPED (6 Sep)":          {},
+    "min_ep 0.70":              {"min_endpoint_secs": 0.70},
+    "min_ep 0.70 + blind 250":  {"min_endpoint_secs": 0.70, "blind_min_silence_ms": 250},
+    "min_ep 0.90":              {"min_endpoint_secs": 0.90},
+    "min_ep 0.90 + blind 250":  {"min_endpoint_secs": 0.90, "blind_min_silence_ms": 250},
 }
 
 
