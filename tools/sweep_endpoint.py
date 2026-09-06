@@ -46,6 +46,11 @@ GRID = {
     "blind gate 400ms":       {"blind_min_silence_ms": 400},
     "blind gate 600ms":       {"blind_min_silence_ms": 600},
     "blind gate 800ms":       {"blind_min_silence_ms": 800},
+    # Priced against a perfect completeness signal, where 0.45 -> 1.00 takes
+    # cut-offs from 18.0% to 7.5% at NO latency cost. The floor only applies to
+    # turns the text says are unfinished, and on those the caller is still
+    # talking -- so the hold is not a wait, it is cancelled by his own speech.
+    "fragment_floor 1.00":    {"fragment_floor_secs": 1.00},
 }
 
 
