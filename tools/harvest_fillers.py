@@ -50,7 +50,7 @@ DOGRAH = REPO.parent / "dograh-vapi"
 sys.path.insert(0, str(DOGRAH))
 sys.path.insert(0, str(REPO / "tools"))
 
-from api.services.vaani.fillers import HARVESTED, cache_path  # noqa: E402
+from api.services.vaani.fillers import cache_path, harvested_key  # noqa: E402
 
 SR = 8000
 FRAME_MS = 10
@@ -109,8 +109,15 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--run", type=int, default=262)
     ap.add_argument("--workflow", type=int, default=2)
-    # Stored under HARVESTED, not a provider voice id: the clip IS whatever
-    # voice made the call, so naming a provider voice could only be wrong.
+    # The clip IS whatever voice made the call, so it is not stored under a
+    # provider voice id -- but it IS stored under the voice that was live when
+    # the call was made. The bare "harvested" key was reachable by every voice,
+    # so clips cut on 28 Aug were still being preferred over correct renders
+    # after the voice was rotated on 5 Sep: the caller would have heard the
+    # previous speaker on half the fillers.
+    ap.add_argument("--voice", required=True,
+                    help="the tts voice that was LIVE on --run (see "
+                         "tools/set_stt_config.py --section tts)")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
 
@@ -179,7 +186,7 @@ def main() -> int:
         clip[:f] *= np.linspace(0, 1, f)
         clip[-f:] *= np.linspace(1, 0, f)
         pcm = clip.astype(np.int16).tobytes()
-        p = cache_path(word, HARVESTED, SR)
+        p = cache_path(word, harvested_key(a.voice), SR)
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_bytes(pcm)
         print(f"wrote {word!r} -> {p.name}  ({len(pcm)/2/SR:.2f}s)")

@@ -93,6 +93,24 @@ def fmt(v):
     return "  --  " if v is None else f"{v:6.3f}"
 
 
+def _text_aggregation(det) -> list:
+    """How long the TTS held text before synthesising, per turn.
+
+    Emitted by `run_pipeline` on `rtf-latency-breakdown`. pipecat computed this
+    all along and it was dropped before persistence, which is how Cartesia's
+    sentence buffering stayed invisible: `tts_secs` is clocked from the
+    AGGREGATED frame, so it measures synthesis and never the wait in front of
+    it. With token streaming on this should be ~0.
+    """
+    out = []
+    for e in (det.get("logs") or {}).get("realtime_feedback_events") or []:
+        if (e.get("type") or "") == "rtf-latency-breakdown":
+            v = (e.get("payload") or {}).get("text_aggregation_secs")
+            if v is not None:
+                out.append(float(v))
+    return out
+
+
 def show_run(wf, rid, transcript=False):
     det = get(f"/api/v1/workflow/{wf}/runs/{rid}")
     rows, raw = decompose(det)
@@ -115,6 +133,41 @@ def show_run(wf, rid, transcript=False):
         print(f"   avg  {statistics.mean(tot):6.3f}   {col(1):6.3f}"
               f"  {col(2):6.3f}  {col(3):6.3f}  {col(4):6.3f}")
         print(f"   p50 TOTAL {statistics.median(tot):.3f}   max {max(tot):.3f}")
+
+        # The distribution, not just the middle.
+        #
+        # "endpoint 523ms" was a MEAN, and a mean hid that the endpoint window
+        # is bimodal: turns where the Telugu detector fires land near 0.4s and
+        # turns where it does not land near 0.8-1.2s. Which bucket a call sits
+        # in decides whether any endpoint work is worth doing at all, and the
+        # mean cannot show it. Run 780 is the other lesson -- p50 3.573s with a
+        # 5.150s turn, where the spread WAS the defect.
+        heads = sorted(r[1] for r in rows if r[1] is not None)
+        if len(heads) >= 4:
+            fast = [h for h in heads if h < 0.6]
+            print(f"   endpoint spread: min {heads[0]:.3f}  "
+                  f"p50 {statistics.median(heads):.3f}  max {heads[-1]:.3f}   "
+                  f"under 0.6s: {len(fast)}/{len(heads)}")
+
+        # What the decomposition does NOT account for.
+        #
+        # TOTAL is real wall clock -- true speech end to first audio out. The
+        # three columns are measurements of separate things and are not
+        # guaranteed to sum to it. Anything left over is time nobody is
+        # measuring, and it is exactly where a defect hides.
+        dark = [r[0] - sum(v for v in (r[1], r[2], r[3]) if v is not None)
+                for r in rows if r[0] is not None]
+        dark = [d for d in dark if abs(d) > 0.02]
+        if dark:
+            print(f"   UNACCOUNTED: mean {statistics.mean(dark):+.3f}s "
+                  f"on {len(dark)}/{len(rows)} turns  "
+                  f"(worst {max(dark, key=abs):+.3f}s)")
+
+        agg = [a for a in (_text_aggregation(det) or []) if a is not None]
+        if agg:
+            print(f"   TTS text aggregation: mean {statistics.mean(agg):.3f}s  "
+                  f"max {max(agg):.3f}s   "
+                  f"({'streaming OK' if max(agg) < 0.05 else 'BUFFERING -- token streaming lost?'})")
     else:
         print("  NO rtf-latency-measured events -- not enough turns to measure")
         if raw["llm"] or raw["tts"]:

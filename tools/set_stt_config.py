@@ -70,6 +70,12 @@ def main() -> int:
     ap.add_argument("--api-key")
     ap.add_argument("--model")
     ap.add_argument("--language")
+    # TTS only. Added 6 Sep when Cartesia credits ran out and the account had to
+    # be swapped: a new account means a new key AND a new voice id, and changing
+    # the key alone leaves the agent authenticating fine against a voice that
+    # does not exist on it -- which fails as SILENCE, indistinguishable from the
+    # turn-detection bug being chased at the time.
+    ap.add_argument("--voice")
     ap.add_argument("--apply", action="store_true")
     a = ap.parse_args()
 
@@ -90,6 +96,8 @@ def main() -> int:
     print(f"{'model':<12}{stt.get('model')}")
     print(f"{'language':<12}{stt.get('language')}")
     print(f"{'api_key':<12}{fingerprint(stt.get('api_key'))}")
+    if stt.get("voice"):
+        print(f"{'voice':<12}{stt.get('voice')}")
 
     changes = {}
     if a.api_key and fingerprint(a.api_key) != fingerprint(stt.get("api_key")):
@@ -98,6 +106,8 @@ def main() -> int:
         changes["model"] = a.model
     if a.language and a.language != stt.get("language"):
         changes["language"] = a.language
+    if a.voice and a.voice != stt.get("voice"):
+        changes["voice"] = a.voice
 
     if not changes:
         print("\nNothing to change.")
