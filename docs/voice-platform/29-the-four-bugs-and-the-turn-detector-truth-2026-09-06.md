@@ -88,7 +88,33 @@ false refunds.**
 
 ---
 
-## 3. Why it sounded robotic — and it was never the prompt
+## 3. Robotic — a correction, and why fillers are NOT the answer
+
+> **CORRECTED later the same day.** The section below was written believing the
+> backchannel fillers were the fix. They are not, and they have been left OFF.
+>
+> `DEFAULT_FILLERS_ENABLED = False` is deliberate, and the comment above it
+> records why: fillers were shipped to this client **twice** and he heard them
+> both times.
+>
+> * run 267 (v1) — a clip at the VAD stop, then 1.0–1.8 s of silence anyway:
+>   *"that aaa in the middle ... it is like scripted"*
+> * run 273 (v2) — a continuous paced cover. The caller heard the word as a
+>   stray interjection and asked what it was:
+>   *"ఆ ఏంది మంచిది ఏంది అది?"* — what is this "మంచిది"?
+>
+> The defect is upstream of timing: **a pre-recorded word does not sound like
+> the sentence it precedes.** Different prosody, leads nowhere, and the caller
+> notices. It is also directly against this project's standing requirement that
+> replies be fully dynamic; pre-recorded speech has already been rejected here.
+>
+> So the two bugs below are real and worth fixing — the renderer could not reach
+> the live voice, and stale clips could outrank correct ones — but fixing them
+> **does not fix "robotic", and the feature stays off.** What remains for
+> robotic is the gap itself (latency, §5) and reply wording, both of which are
+> generated rather than spliced.
+
+### The two bugs found while investigating (fixed; feature still off)
 
 `FillerPlayer` is built, wired into the pipeline, gated on the trained turn
 detector, and covered by tests. **It had never once made a sound.**
@@ -213,7 +239,7 @@ quality as well as speed.
 
 | Complaint | Status |
 |---|---|
-| Robotic | **fixed** — six clips now render in the live voice |
+| Robotic | **NOT fixed** — fillers were the wrong answer and stay off; see the correction in §3 |
 | Loops | **fixed** — run 803 ends at reply 2, not reply 7 |
 | Skips questions | **fixed** — the bill gets three attempts, not zero |
 | Does not listen | **fixed** — the caller's words reach the instruction |
