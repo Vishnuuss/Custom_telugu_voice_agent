@@ -410,6 +410,92 @@ only prompt text differs from what is live.
 Not corrected here: prompt work was explicitly out of scope for this pass, and
 someone was editing these workflows the same afternoon.
 
+## A finished call could land empty and stay empty (06 Sep)
+
+Reported as "call ended 5 minutes ago and the call log still is not updated".
+My earlier "the chain works" was based on four calls I placed myself, which was
+not proof — this is a race, and it spoils some calls and not others.
+
+**Run 798, solar, 08:49:48 UTC**
+
+| | Vaani | Dashboard, before |
+|---|---|---|
+| duration | 70s | **0** |
+| recording / transcript | present | none |
+| house_ownership | `own` | — |
+| solar_planning | `true` | — |
+| lead score | 100 | **0** |
+
+A qualified customer shown to the client as a dud. Three things had to be true
+at once, and all three were:
+
+1. **The webhook wins a race against extraction.** Vaani's webhook node fires at
+   hang-up; when `perform_final_variable_extraction` has not finished, every
+   `{{gathered_context.X}}` renders empty and the duration renders 0 — and that
+   was stored as the record. Of six real calls that day, three arrived complete.
+2. **Nothing completed the row.** The 04 Sep backfill repaired only duration and
+   media; I had left scoring alone to avoid the 006 re-scoring runaway, so the
+   answers never arrived.
+3. **The repair could not have run anyway.** The cron's campaign loop only visits
+   `queued/running/paused` campaigns — **101 of 113 were `completed`**, and a
+   completed campaign is never revisited.
+
+### The fix, at all three points
+
+- The **webhook** now reads the run back from Vaani when the payload carries no
+  duration or no qualification, and merges it before the insert. The row is right
+  within seconds rather than waiting for a sweep. Best-effort: a failed fetch
+  still stores the thin row, because a thin record beats none.
+- **`backfillIncompleteLog`** completes the qualification too, but at most once —
+  the guard is "stored row has none AND the run has one", so it closes for ever
+  after it fires. `attempt_no`, `retry_count` and the notes line are never
+  touched; re-counting attempts every tick is what produced 47 rows and
+  retry_count 31 for 3 calls in 006.
+- **`repairIncompleteCallLogs()`** finds the damage directly — recent rows with
+  no talk time or missing media — and repairs each from its run whatever its
+  campaign is doing. Bounded to 7 days and 200 rows per tick.
+
+A call where Vaani itself extracted nothing (runs 793, 795 — every variable came
+back `""`) is left alone. An invented score is worse than an honest blank.
+
+### The first sweep found a bug in the fix
+
+It reported `repaired 2` **and `errors 6`**, and the six were not noise: they
+were the old backend's rows (runs 2091-2097). This pass repairs a row from
+whatever run comes back for its id, and a run id is unique only within one
+backend. Today they merely 404 because Vaani is at ~800 — but when Vaani reaches
+2091 they would start returning a **different customer's call**, merged into an
+August row. The same collision `scripts/009` exists for, reintroduced in the new
+repair path.
+
+The candidate query is now scoped by `provider`, and a 404 counts as skipped
+rather than error (six permanent errors a tick would hide a real one). Next
+sweep: `scanned 1, repaired 0, skipped 1, errors 0`.
+
+### Verified
+
+All six of 06 Sep's calls now match Vaani exactly:
+
+| run | Vaani | dashboard | rec | txt |
+|---|---|---|---|---|
+| 793 | 17s | 17s | Y | Y |
+| 794 | 14s | 14s | Y | Y |
+| 795 | 14s | 14s | Y | Y |
+| 796 | 39s | 39s | Y | Y |
+| 797 | 24s | 24s | Y | Y |
+| 798 | **70s** | **70s** | Y | Y |
+
+Run 798's lead now reads score 100, qualification `qualified`, `house_ownership`
+own, `solar_planning` true. 75 tests passing.
+
+### The account is overdrawn
+
+`balance_milli_credits` is **-24,000** (minus 24 credits), against an auto-pause
+floor of 20,000. Auto-pause stops *campaigns*; the per-call pre-flight only
+refuses when the balance is below one minimum charge, so a run of single calls
+walked it past zero. Needs a top-up before handover, and the per-call floor is
+worth revisiting.
+
 ## What is still outstanding
 
 ### The two migrations are not applied
