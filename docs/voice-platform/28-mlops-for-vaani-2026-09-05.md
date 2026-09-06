@@ -111,9 +111,22 @@ cutoff rate      1.6%   (2/124)    target < 2%   PASS
 endpoint p50     0.487s            budget 0.250s
 ```
 
-**The detector is meeting its own quality bar on real calls.** That is now a
-measured fact rather than an assumption, and it is the answer to "is the turn
-detection any good".
+> **CORRECTED 6 Sep 2026 — this number is wrong and must not be quoted.**
+>
+> Replaying 200 recorded calls through the shipped analyzer frame by frame
+> (`tools/replay_turns.py`) measures **35.9% of speech bursts cut off**, not
+> 1.6%. The monitor undercounts by more than twenty times, because it reads
+> resumes out of the run log and the log only records FINAL transcripts — it
+> cannot see the caller restarting inside one utterance, which is where almost
+> all of the cut-offs are.
+>
+> The claim below — that the detector meets its quality bar on real calls — is
+> therefore withdrawn. It does not. See
+> [29-the-four-bugs-and-the-turn-detector-truth](29-the-four-bugs-and-the-turn-detector-truth-2026-09-06.md)
+> §4 for the measurement, the pipecat bake-off, and the root cause.
+>
+> The lesson is the one this document already warns about in §5, applied to
+> itself: a metric that agrees with what you hoped is the one to check hardest.
 
 It also independently caught the 5 Sep incident — run 780, the broken realtime
 STT call, shows endpoint 1.398 s and 100% slow turns, with no knowledge of what
